@@ -370,6 +370,8 @@ export class GLoader extends GObject {
                 this.onExternalLoadSuccess(sp);
             }
         };
+
+        const bundle = assetManager.getBundle(UIConfig.bundleName) || resources;
         if (this.url.startsWith("http://")
             || this.url.startsWith("https://")
             || this.url.startsWith('/')) {
@@ -379,7 +381,7 @@ export class GLoader extends GObject {
                 assetManager.loadRemote(this.url, callback);
             }
         } else {
-            resources.load(this.url, Asset, callback);
+            bundle.load(this.url, Asset, callback);
         }
     }
 

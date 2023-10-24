@@ -64,10 +64,12 @@ export class UIConfig {
 
     //Default group name of UI node.<br/>
     public static defaultUILayer: number = Layers.Enum.UI_2D;
-
+    // 开启延时加载
     public static enableDelayLoad: boolean = true;
-    // 
+    // 自动释放
     public static autoReleaseAssets: boolean = false;
+    // 设定fgui资源所在bundle
+    public static bundleName: string = "fgui";
 }
 
 let _fontRegistry: { [index: string]: Font } = {};

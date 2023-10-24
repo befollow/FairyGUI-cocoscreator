@@ -1,4 +1,4 @@
-import { Asset, assetManager, dragonBones, Rect, Sprite, SpriteFrame, Vec2 } from "cc";
+import { Asset, assetManager, dragonBones, Rect, resources, Sprite, SpriteFrame, Vec2 } from "cc";
 import { Frame } from "./display/MovieClip";
 import { PixelHitTestData } from "./event/HitTest";
 import { PackageItemType, ObjectType } from "./FieldTypes";
@@ -52,6 +52,9 @@ export class PackageItem {
     private _ref: number = 0;
     public get ref(): number {
         return this._ref;
+    }
+    get bundle(){
+        return assetManager.getBundle(UIConfig.bundleName) || resources;
     }
 
     public constructor() {
@@ -124,6 +127,7 @@ export class PackageItem {
                             if(UIConfig.autoReleaseAssets) {
                                 if(frame.texture.refCount==0) {                                    
                                     assetManager.releaseAsset(frame.texture);
+                                    this.bundle.release(this.file);
                                 }
                             }
                         }
@@ -139,6 +143,7 @@ export class PackageItem {
         if(UIConfig.autoReleaseAssets) {
             if(this.asset && this.asset.refCount==0) {
                 assetManager.releaseAsset(this.asset);
+                this.bundle.release(this.file);
             }
 
             if(this._ref==0) {
@@ -170,6 +175,7 @@ export class PackageItem {
         if (this.asset) {
             if(force) {
                 assetManager.releaseAsset(this.asset);
+                this.bundle.release(this.file);
             }else{
                 this.asset.decRef(true);
             }
