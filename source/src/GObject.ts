@@ -660,7 +660,7 @@ export class GObject {
     protected onDisable() {
     }
 
-    protected onUpdate() {
+    protected onUpdate(dt: number) {
     }
 
     protected onDestroy() {

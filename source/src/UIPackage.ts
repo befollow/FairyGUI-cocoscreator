@@ -1,4 +1,4 @@
-import { Asset, assetManager, AssetManager, AudioClip, BitmapFont, BufferAsset, CCClass, ccenum, CCObject, dragonBones, ImageAsset, LabelAtlas, path, Rect, resources, Size, sp, SpriteFrame, Texture2D, Vec2 } from "cc";
+import { Asset, assetManager, AssetManager, AudioClip, BitmapFont, BufferAsset, dragonBones, ImageAsset, path, Rect, resources, Size, sp, SpriteFrame, Texture2D, Vec2 } from "cc";
 import PathUtils = path;
 import { ObjectType, PackageItemType } from "./FieldTypes";
 import { constructingDepth, GObject } from "./GObject";
@@ -61,6 +61,27 @@ export class UIPackage {
 
     public static getByName(name: string): UIPackage {
         return _instByName[name];
+    }
+
+    public static getByItemUrl(url: string): UIPackage {
+        var pos1: number = url.indexOf("//");
+        if (pos1 == -1)
+            return null;
+
+        var pos2: number = url.indexOf("/", pos1 + 2);
+        if (pos2 == -1) {
+            if (url.length > 13) {
+                var pkgId: string = url.substr(5, 8);
+                var pkg: UIPackage = UIPackage.getById(pkgId);
+                return pkg;
+            }
+        }
+        else {
+            var pkgName: string = url.substr(pos1 + 2, pos2 - pos1 - 2);
+            pkg = UIPackage.getByName(pkgName);
+            return pkg;
+        }
+        return null;
     }
 
     /**
@@ -505,8 +526,10 @@ export class UIPackage {
         var cnt: number = this._items.length;
         for (var i: number = 0; i < cnt; i++) {
             var pi: PackageItem = this._items[i];
-            if (pi.asset)
+            if (pi.asset) {
                 assetManager.releaseAsset(pi.asset);
+                this._bundle.release(pi.file);
+            }
         }
     }
 
