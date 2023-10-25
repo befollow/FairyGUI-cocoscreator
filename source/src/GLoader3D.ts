@@ -345,12 +345,13 @@ export class GLoader3D extends GObject {
     }
 
     protected loadExternal(): void {
+        const bundle = assetManager.getBundle(UIConfig.bundleName) || resources;
         if (this._url.startsWith("http://")
             || this._url.startsWith("https://")
             || this._url.startsWith('/'))
             assetManager.loadRemote(this._url, sp.SkeletonData, this.onLoaded2.bind(this));
         else
-            resources.load(this._url, sp.SkeletonData, this.onLoaded2.bind(this));
+            bundle.load(this._url, sp.SkeletonData, this.onLoaded2.bind(this));
     }
 
     private onLoaded2(err: Error, asset: Asset): void {

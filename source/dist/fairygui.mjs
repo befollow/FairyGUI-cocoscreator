@@ -12749,12 +12749,13 @@ class GLoader3D extends GObject {
             this._content.armature().animation.reset();
     }
     loadExternal() {
+        const bundle = assetManager.getBundle(UIConfig.bundleName) || resources;
         if (this._url.startsWith("http://")
             || this._url.startsWith("https://")
             || this._url.startsWith('/'))
             assetManager.loadRemote(this._url, sp.SkeletonData, this.onLoaded2.bind(this));
         else
-            resources.load(this._url, sp.SkeletonData, this.onLoaded2.bind(this));
+            bundle.load(this._url, sp.SkeletonData, this.onLoaded2.bind(this));
     }
     onLoaded2(err, asset) {
         //因为是异步返回的，而这时可能url已经被改变，所以不能直接用返回的结果
