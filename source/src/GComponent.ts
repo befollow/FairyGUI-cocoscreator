@@ -1,4 +1,4 @@
-import { Mask, Vec2, Size, Node, UITransform, Constructor } from "cc";
+import { Mask, Vec2, Size, Node, UITransform, Constructor, ISchedulable, Scheduler, director, macro } from "cc";
 import { Controller, createAction } from "./Controller";
 import { Event as FUIEvent } from "./event/Event";
 import { IHitTest, PixelHitTest, ChildHitArea } from "./event/HitTest";
@@ -17,6 +17,7 @@ import { UIContentScaler } from "./UIContentScaler";
 import { Decls, IObjectFactoryType, UIPackage } from "./UIPackage";
 import { ByteBuffer } from "./utils/ByteBuffer";
 import { PlayTransitionAction } from "./action/PlayTransitionAction";
+const scheduler = director.getScheduler();
 
 export class GComponent extends GObject {
     public hitArea?: IHitTest;
@@ -47,7 +48,7 @@ export class GComponent extends GObject {
 
     public constructor() {
         super();
-
+        Scheduler.enableForTarget(this);
         this._node.name = "GComponent";
         this._children = new Array<GObject>();
         this._controllers = new Array<Controller>();
@@ -72,7 +73,32 @@ export class GComponent extends GObject {
         }
     }
 
+    protected schedule(callback: any, interval: number = 0, repeat: number = macro.REPEAT_FOREVER, delay: number = 0) {
+        interval = interval || 0;
+        repeat = Number.isNaN(repeat) ? macro.REPEAT_FOREVER : repeat;
+        delay = delay || 0;
+        const paused = scheduler.isTargetPaused(this);
+        scheduler.schedule(callback, this, interval, repeat, delay, paused);
+    }
+
+    protected unschedule(callback: any) {
+        if (!callback) {
+            return;
+        }
+        scheduler.unschedule(callback, this);
+    }
+
+    protected scheduleOnce(callback: any, delay: number = 0) {
+        this.schedule(callback, 0, 0, delay);
+    }
+
+    protected clearSchedule() {
+        scheduler.unscheduleAllForTarget(this);
+    }
+
     public dispose(): void {
+        this.clearSchedule();
+        
         var i: number;
         var cnt: number;
 
@@ -423,7 +449,7 @@ export class GComponent extends GObject {
     }
 
     private onChildAdd(child: GObject, index: number): void {
-        if(!child.node) {
+        if (!child.node) {
             console.error("child.node is null");
             return;
         }
@@ -1299,7 +1325,7 @@ export class GComponent extends GObject {
     addTransition(transition: Transition, newName?: string, applyBaseValue = true): void {
         let trans = new Transition(this);
         trans.copyFrom(transition, applyBaseValue);
-        if(newName) {
+        if (newName) {
             trans.name = newName;
         }
         this._transitions.push(trans);
@@ -1315,12 +1341,12 @@ export class GComponent extends GObject {
         var action = createAction(0) as PlayTransitionAction;
         action.transitionName = transition.name;
 
-        if(fromPages) {
+        if (fromPages) {
             fromPages = fromPages.map((it) => {
                 return ctrl.getPageIdByName(it);
             });
         }
-        if(toPages) {
+        if (toPages) {
             toPages = toPages.map((it) => {
                 return ctrl.getPageIdByName(it);
             });

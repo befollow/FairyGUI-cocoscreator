@@ -249,7 +249,7 @@ declare module 'fairygui-cc/GObject' {
         dispose(): void;
         protected onEnable(): void;
         protected onDisable(): void;
-        protected onUpdate(): void;
+        protected onUpdate(dt: number): void;
         protected onDestroy(): void;
         onClick(listener: Function, target?: any): void;
         onceClick(listener: Function, target?: any): void;
@@ -732,6 +732,10 @@ declare module 'fairygui-cc/GComponent' {
         constructor();
         get excludeInvisibles(): boolean;
         set excludeInvisibles(value: boolean);
+        protected schedule(callback: any, interval?: number, repeat?: number, delay?: number): void;
+        protected unschedule(callback: any): void;
+        protected scheduleOnce(callback: any, delay?: number): void;
+        protected clearSchedule(): void;
         dispose(): void;
         get displayListContainer(): Node;
         addChild(child: GObject): GObject;
@@ -1605,6 +1609,7 @@ declare module 'fairygui-cc/UIPackage' {
             static setVar(key: string, value: string | null): void;
             static getById(id: string): UIPackage;
             static getByName(name: string): UIPackage;
+            static getByItemUrl(url: string): UIPackage;
             /**
                 * 注册一个包。包的所有资源必须放在resources下，且已经预加载。
                 * @param path 相对 resources 的路径。

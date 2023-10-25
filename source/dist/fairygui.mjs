@@ -1,4 +1,4 @@
-import { gfx, UIRenderer, Event as Event$1, Vec2, Node, game, director, macro, Color, Layers, Font, resources, Vec3, Rect, UITransform, UIOpacity, Component, Graphics, misc, Sprite, Size, screen, view, ImageAsset, AudioClip, BufferAsset, AssetManager, Asset, assetManager, Texture2D, SpriteFrame, BitmapFont, sp, dragonBones, path, Label, LabelOutline, LabelShadow, SpriteAtlas, RichText, sys, EventMouse, EventTarget, Mask, math, isValid, View, AudioSourceComponent, EditBox, Overflow } from 'cc';
+import { gfx, UIRenderer, Event as Event$1, Vec2, Node, game, director, macro, Color, Layers, Font, resources, Vec3, Rect, UITransform, UIOpacity, Component, Graphics, misc, Sprite, Size, screen, view, ImageAsset, AudioClip, BufferAsset, AssetManager, Asset, assetManager, Texture2D, SpriteFrame, BitmapFont, sp, dragonBones, path, Label, LabelOutline, LabelShadow, SpriteAtlas, RichText, sys, EventMouse, EventTarget, Mask, math, isValid, Scheduler, View, AudioSourceComponent, EditBox, Overflow } from 'cc';
 import { EDITOR } from 'cc/env';
 
 var ButtonMode;
@@ -2979,7 +2979,7 @@ class GObject {
     }
     onDisable() {
     }
-    onUpdate() {
+    onUpdate(dt) {
     }
     onDestroy() {
     }
@@ -5079,6 +5079,25 @@ class UIPackage {
     static getByName(name) {
         return _instByName[name];
     }
+    static getByItemUrl(url) {
+        var pos1 = url.indexOf("//");
+        if (pos1 == -1)
+            return null;
+        var pos2 = url.indexOf("/", pos1 + 2);
+        if (pos2 == -1) {
+            if (url.length > 13) {
+                var pkgId = url.substr(5, 8);
+                var pkg = UIPackage.getById(pkgId);
+                return pkg;
+            }
+        }
+        else {
+            var pkgName = url.substr(pos1 + 2, pos2 - pos1 - 2);
+            pkg = UIPackage.getByName(pkgName);
+            return pkg;
+        }
+        return null;
+    }
     /**
      * 注册一个包。包的所有资源必须放在resources下，且已经预加载。
      * @param path 相对 resources 的路径。
@@ -5430,8 +5449,10 @@ class UIPackage {
         var cnt = this._items.length;
         for (var i = 0; i < cnt; i++) {
             var pi = this._items[i];
-            if (pi.asset)
+            if (pi.asset) {
                 assetManager.releaseAsset(pi.asset);
+                this._bundle.release(pi.file);
+            }
         }
     }
     get id() {
@@ -10151,6 +10172,7 @@ class TweenConfig {
     }
 }
 
+const scheduler = director.getScheduler();
 class GComponent extends GObject {
     constructor() {
         super();
@@ -10159,6 +10181,7 @@ class GComponent extends GObject {
         this._apexIndex = 0;
         this._invertedMask = false;
         this._excludeInvisibles = false;
+        Scheduler.enableForTarget(this);
         this._node.name = "GComponent";
         this._children = new Array();
         this._controllers = new Array();
@@ -10179,7 +10202,27 @@ class GComponent extends GObject {
             this.setBoundsChangedFlag();
         }
     }
+    schedule(callback, interval = 0, repeat = macro.REPEAT_FOREVER, delay = 0) {
+        interval = interval || 0;
+        repeat = Number.isNaN(repeat) ? macro.REPEAT_FOREVER : repeat;
+        delay = delay || 0;
+        const paused = scheduler.isTargetPaused(this);
+        scheduler.schedule(callback, this, interval, repeat, delay, paused);
+    }
+    unschedule(callback) {
+        if (!callback) {
+            return;
+        }
+        scheduler.unschedule(callback, this);
+    }
+    scheduleOnce(callback, delay = 0) {
+        this.schedule(callback, 0, 0, delay);
+    }
+    clearSchedule() {
+        scheduler.unscheduleAllForTarget(this);
+    }
     dispose() {
+        this.clearSchedule();
         var i;
         var cnt;
         cnt = this._transitions.length;
