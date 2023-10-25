@@ -417,6 +417,7 @@ declare module 'fairygui-cc/GRoot' {
         get hasModalWindow(): boolean;
         get modalWaiting(): boolean;
         getPopupPosition(popup: GObject, target?: GObject, dir?: PopupDirection | boolean, result?: Vec2): Vec2;
+        removeChildAt(index: number, dispose?: boolean): GObject;
         showPopup(popup: GObject, target?: GObject | null, dir?: PopupDirection | boolean): void;
         togglePopup(popup: GObject, target?: GObject, dir?: PopupDirection | boolean): void;
         hidePopup(popup?: GObject): void;
@@ -729,6 +730,8 @@ declare module 'fairygui-cc/GComponent' {
         _alignOffset: Vec2;
         _customMask?: Mask;
         constructor();
+        get excludeInvisibles(): boolean;
+        set excludeInvisibles(value: boolean);
         dispose(): void;
         get displayListContainer(): Node;
         addChild(child: GObject): GObject;
@@ -800,6 +803,8 @@ declare module 'fairygui-cc/GComponent' {
         setup_afterAdd(buffer: ByteBuffer, beginPos: number): void;
         protected onEnable(): void;
         protected onDisable(): void;
+        addTransition(transition: Transition, newName?: string, applyBaseValue?: boolean): void;
+        addControllerAction(controlName: string, transition: Transition, fromPages: string[], toPages: string[], applyBaseValue?: boolean): void;
     }
 }
 
@@ -851,6 +856,8 @@ declare module 'fairygui-cc/GButton' {
         static DISABLED: string;
         static SELECTED_DISABLED: string;
         constructor();
+        get downEffect(): number;
+        set downEffect(value: number);
         get icon(): string | null;
         set icon(value: string | null);
         get selectedIcon(): string | null;
@@ -1245,6 +1252,7 @@ declare module 'fairygui-cc/PopupMenu' {
 }
 
 declare module 'fairygui-cc/Controller' {
+    import { ControllerAction } from "fairygui-cc/action/ControllerAction";
     import { ByteBuffer } from "fairygui-cc/utils/ByteBuffer";
     export class Controller extends EventTarget {
         name: string;
@@ -1281,9 +1289,11 @@ declare module 'fairygui-cc/Controller' {
         get previousPageId(): string | null;
         runActions(): void;
         setup(buffer: ByteBuffer): void;
+        addAction(action: ControllerAction): void;
     }
     import { EventTarget } from "cc";
     import { GComponent } from "fairygui-cc/GComponent";
+    export function createAction(type: number): ControllerAction;
 }
 
 declare module 'fairygui-cc/Transition' {
@@ -1313,6 +1323,7 @@ declare module 'fairygui-cc/Transition' {
         onEnable(): void;
         onDisable(): void;
         setup(buffer: ByteBuffer): void;
+        copyFrom(source: Transition, applyBaseValue?: boolean): void;
     }
 }
 
@@ -1759,6 +1770,7 @@ declare module 'fairygui-cc/UIConfig' {
         static frameTimeForAsyncUIConstruction: number;
         static linkUnderline: boolean;
         static defaultUILayer: number;
+        static bundleName: string;
     }
     export function registerFont(name: string, font: Font | string, bundle?: AssetManager.Bundle): void;
     export function getFontByName(name: string): Font;
@@ -1986,6 +1998,7 @@ declare module 'fairygui-cc/display/Image' {
         set fillClockwise(value: boolean);
         get fillAmount(): number;
         set fillAmount(value: number);
+        __update(): void;
     }
 }
 
@@ -2349,6 +2362,20 @@ declare module 'fairygui-cc/Margin' {
         constructor();
         copy(source: Margin): void;
         isNone(): boolean;
+    }
+}
+
+declare module 'fairygui-cc/action/ControllerAction' {
+    import { Controller } from "fairygui-cc/Controller";
+    import { ByteBuffer } from "fairygui-cc/utils/ByteBuffer";
+    export class ControllerAction {
+        fromPage: Array<string>;
+        toPage: Array<string>;
+        constructor();
+        run(controller: Controller, prevPage: string, curPage: string): void;
+        protected enter(controller: Controller): void;
+        protected leave(controller: Controller): void;
+        setup(buffer: ByteBuffer): void;
     }
 }
 

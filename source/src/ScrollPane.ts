@@ -1,4 +1,4 @@
-import { Component, director, isValid, Mask, math, Node, Rect, sys, UITransform, Vec2, View } from "cc"
+import { Component, director, game, isValid, Mask, math, Node, Rect, sys, UITransform, Vec2, screen } from "cc"
 import { Controller } from "./Controller";
 import { Event as FUIEvent } from "./event/Event";
 import { ScrollBarDisplayType, ScrollType } from "./FieldTypes";
@@ -1049,7 +1049,7 @@ export class ScrollPane extends Component {
         this._isHoldAreaDone = false;
         this._velocity.set(Vec2.ZERO);;
         this._velocityScale = 1;
-        this._lastMoveTime = director.getTotalTime() / 1000;
+        this._lastMoveTime = game.totalTime / 1000;
     }
 
     private onTouchMove(evt: FUIEvent): void {
@@ -1169,7 +1169,7 @@ export class ScrollPane extends Component {
 
 
         //更新速度
-        var now: number = director.getTotalTime() / 1000;
+        var now: number = game.totalTime / 1000;
         var deltaTime: number = Math.max(now - this._lastMoveTime, 1 / 60);
         var deltaPositionX: number = pt.x - this._lastTouchPos.x;
         var deltaPositionY: number = pt.y - this._lastTouchPos.y;
@@ -1301,7 +1301,7 @@ export class ScrollPane extends Component {
             //更新速度
             if (!this._inertiaDisabled) {
                 var frameRate: number = 60;
-                var elapsed: number = (director.getTotalTime() / 1000 - this._lastMoveTime) * frameRate - 1;
+                var elapsed: number = (game.totalTime / 1000 - this._lastMoveTime) * frameRate - 1;
                 if (elapsed > 1) {
                     var factor: number = Math.pow(0.833, elapsed);
                     this._velocity.x = this._velocity.x * factor;
@@ -1617,7 +1617,7 @@ export class ScrollPane extends Component {
             //以屏幕像素为基准
             var isMobile: boolean = sys.isMobile;
             var v2: number = Math.abs(v) * this._velocityScale;
-            const winSize = View.instance.getCanvasSize();
+            const winSize = screen.windowSize;
             //在移动设备上，需要对不同分辨率做一个适配，我们的速度判断以1136分辨率为基准
             if (isMobile)
                 v2 *= 1136 / Math.max(winSize.width, winSize.height);

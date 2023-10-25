@@ -1162,6 +1162,48 @@ export class Transition {
                 break;
         }
     }
+
+    copyFrom(source: Transition, applyBaseValue = true): void {
+        let cnt: number = source._items.length;
+        this.name = source.name;
+        this._options = source._options;
+        this._autoPlay = source._autoPlay;
+        this._autoPlayTimes = source._autoPlayTimes;
+        this._autoPlayDelay = source._autoPlayDelay;
+        this._totalDuration = source._totalDuration;
+
+        for (let i: number = 0; i < cnt; i++) {
+            let item = source._items[i].clone();
+
+            if(applyBaseValue) {
+                let config = item.tweenConfig;     
+                let rawConfig = source._items[i].tweenConfig;           
+                if(config) {
+                    if(item.type == ActionType.Scale) {
+                        if(config.startValue) {
+                            config.startValue.f1 = rawConfig.startValue.f1 * this._owner.scaleX;
+                            config.startValue.f2 = rawConfig.startValue.f2 * this._owner.scaleY;
+                        }
+
+                        if(config.endValue) {
+                            config.endValue.f1 = rawConfig.endValue.f1 * this._owner.scaleX;
+                            config.endValue.f2 = rawConfig.endValue.f2 * this._owner.scaleY;
+                        }
+                    }else if(item.type == ActionType.Alpha) {
+                        if(config.startValue) {
+                            config.startValue.f1 = rawConfig.startValue.f1 * this._owner.alpha;
+                        }
+    
+                        if(config.endValue) {
+                            config.endValue.f1 = rawConfig.endValue.f1 * this._owner.alpha;
+                        }
+                    }
+                }
+            }
+
+            this._items.push(item);
+        }
+    }
 }
 
 const OPTION_IGNORE_DISPLAY_CONTROLLER: number = 1;
@@ -1206,6 +1248,17 @@ class Item {
         this.value = {};
         this.displayLockToken = 0;
     }
+
+    clone(): Item {
+        let item = new Item(this.type);
+        item.time = this.time;
+        item.targetId = this.targetId;
+        if (this.tweenConfig)
+            item.tweenConfig = this.tweenConfig.clone();
+        item.label = this.label;
+        item.value = Object.assign({}, this.value);
+        return item;
+    }        
 }
 
 class TweenConfig {
@@ -1223,6 +1276,30 @@ class TweenConfig {
         this.easeType = EaseType.QuadOut;
         this.startValue = { b1: true, b2: true };
         this.endValue = { b1: true, b2: true };
+    }
+
+    clone(): TweenConfig {
+        let keys = Object.keys(this);
+        let tc = new TweenConfig() as any;
+        for (let i = 0; i < keys.length; i++) {
+            let k = keys[i];
+            // @ts-ignore
+            let value = this[k];
+            if(value == null) {
+                continue;
+            }
+
+            if(k == "endHook") {
+                continue;
+            }
+
+            if(typeof value == "object") {
+                value = Object.assign({}, value);
+            }
+
+            tc[k] = value;
+        }
+        return tc;
     }
 }
 

@@ -1,5 +1,5 @@
 import { Mask, Vec2, Size, Node, UITransform, Constructor } from "cc";
-import { Controller } from "./Controller";
+import { Controller, createAction } from "./Controller";
 import { Event as FUIEvent } from "./event/Event";
 import { IHitTest, PixelHitTest, ChildHitArea } from "./event/HitTest";
 import { ChildrenRenderOrder, OverflowType, ObjectType } from "./FieldTypes";
@@ -16,6 +16,7 @@ import { UIConfig } from "./UIConfig";
 import { UIContentScaler } from "./UIContentScaler";
 import { Decls, IObjectFactoryType, UIPackage } from "./UIPackage";
 import { ByteBuffer } from "./utils/ByteBuffer";
+import { PlayTransitionAction } from "./action/PlayTransitionAction";
 
 export class GComponent extends GObject {
     public hitArea?: IHitTest;
@@ -42,6 +43,7 @@ export class GComponent extends GObject {
     public _customMask?: Mask
 
     private _invertedMask: boolean = false;
+    private _excludeInvisibles: boolean = false;
 
     public constructor() {
         super();
@@ -57,6 +59,17 @@ export class GComponent extends GObject {
         this._container.layer = UIConfig.defaultUILayer;
         this._container.addComponent(UITransform).setAnchorPoint(0, 1);
         this._node.addChild(this._container);
+    }
+
+    public get excludeInvisibles(): boolean {
+        return this._excludeInvisibles;
+    }
+
+    public set excludeInvisibles(value: boolean) {
+        if (this._excludeInvisibles != value) {
+            this._excludeInvisibles = value;
+            this.setBoundsChangedFlag();
+        }
     }
 
     public dispose(): void {
@@ -410,6 +423,10 @@ export class GComponent extends GObject {
     }
 
     private onChildAdd(child: GObject, index: number): void {
+        if(!child.node) {
+            console.error("child.node is null");
+            return;
+        }
         child.node.parent = this._container;
         child.node.active = child._finalVisible;
 
@@ -878,6 +895,9 @@ export class GComponent extends GObject {
 
             for (var i: number = 0; i < len; i++) {
                 var child: GObject = this._children[i];
+                if (this._excludeInvisibles && !child.internalVisible3)
+                    continue;
+
                 tmp = child.x;
                 if (tmp < ax)
                     ax = tmp;
@@ -1274,6 +1294,42 @@ export class GComponent extends GObject {
         let cnt: number = this._transitions.length;
         for (let i: number = 0; i < cnt; ++i)
             this._transitions[i].onDisable();
+    }
+
+    addTransition(transition: Transition, newName?: string, applyBaseValue = true): void {
+        let trans = new Transition(this);
+        trans.copyFrom(transition, applyBaseValue);
+        if(newName) {
+            trans.name = newName;
+        }
+        this._transitions.push(trans);
+    }
+
+    addControllerAction(controlName: string, transition: Transition, fromPages: string[], toPages: string[], applyBaseValue = true): void {
+        let ctrl = this.getController(controlName);
+        if (!ctrl)
+            return;
+
+        this.addTransition(transition, null, applyBaseValue);
+
+        var action = createAction(0) as PlayTransitionAction;
+        action.transitionName = transition.name;
+
+        if(fromPages) {
+            fromPages = fromPages.map((it) => {
+                return ctrl.getPageIdByName(it);
+            });
+        }
+        if(toPages) {
+            toPages = toPages.map((it) => {
+                return ctrl.getPageIdByName(it);
+            });
+        }
+
+        action.fromPage = fromPages;
+        action.toPage = toPages;
+
+        ctrl.addAction(action);
     }
 }
 

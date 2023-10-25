@@ -276,7 +276,10 @@ export class GLoader extends GObject {
                             this._content.type = Sprite.Type.TILED;
                         else
                             this._content.type = Sprite.Type.SIMPLE;
+                    }else{
+                        this._content.type = Sprite.Type.FILLED;
                     }
+                    this._content.__update();
                     this.updateLayout();
                 }
             }
@@ -334,12 +337,13 @@ export class GLoader extends GObject {
                 this.onExternalLoadSuccess(sf);
             }
         };
+        const bundle = assetManager.getBundle(UIConfig.bundleName) || resources;
         if (this._url.startsWith("http://")
             || this._url.startsWith("https://")
             || this._url.startsWith('/'))
             assetManager.loadRemote(this._url, callback);
         else
-            resources.load(this._url + "/spriteFrame", Asset, callback);
+            bundle.load(this._url + "/spriteFrame", Asset, callback);
     }
 
     protected freeExternal(texture: SpriteFrame): void {

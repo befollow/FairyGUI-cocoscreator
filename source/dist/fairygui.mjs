@@ -1,4 +1,4 @@
-import { gfx, UIRenderer, Event as Event$1, Vec2, Node, game, director, macro, Color, Layers, Font, resources, Vec3, Rect, UITransform, UIOpacity, Component, Graphics, misc, Sprite, Size, view, ImageAsset, AudioClip, BufferAsset, AssetManager, Asset, assetManager, Texture2D, SpriteFrame, BitmapFont, sp, dragonBones, path, Label, LabelOutline, LabelShadow, SpriteAtlas, RichText, sys, EventMouse, EventTarget, Mask, math, isValid, View, AudioSourceComponent, EditBox, Overflow } from 'cc';
+import { gfx, UIRenderer, Event as Event$1, Vec2, Node, game, director, macro, Color, Layers, Font, resources, Vec3, Rect, UITransform, UIOpacity, Component, Graphics, misc, Sprite, Size, screen, view, ImageAsset, AudioClip, BufferAsset, AssetManager, Asset, assetManager, Texture2D, SpriteFrame, BitmapFont, sp, dragonBones, path, Label, LabelOutline, LabelShadow, SpriteAtlas, RichText, sys, EventMouse, EventTarget, Mask, math, isValid, View, AudioSourceComponent, EditBox, Overflow } from 'cc';
 import { EDITOR } from 'cc/env';
 
 var ButtonMode;
@@ -2481,6 +2481,8 @@ UIConfig.frameTimeForAsyncUIConstruction = 0.002;
 UIConfig.linkUnderline = true;
 //Default group name of UI node.<br/>
 UIConfig.defaultUILayer = Layers.Enum.UI_2D;
+// 设定fgui资源所在bundle
+UIConfig.bundleName = "fgui";
 let _fontRegistry = {};
 function registerFont(name, font, bundle) {
     if (font instanceof Font)
@@ -4040,18 +4042,24 @@ class Image extends Sprite {
         if (this._fillMethod != value) {
             this._fillMethod = value;
             if (this._fillMethod != 0) {
-                this.type = Sprite.Type.FILLED;
-                if (this._fillMethod <= 3)
-                    this.fillType = this._fillMethod - 1;
-                else
-                    this.fillType = Sprite.FillType.RADIAL;
-                this.fillCenter = new Vec2(0.5, 0.5);
+                this.updateFillType();
                 this.setupFill();
             }
             else {
                 this.type = Sprite.Type.SIMPLE;
             }
         }
+    }
+    updateFillType() {
+        if (!this.spriteFrame) {
+            return;
+        }
+        this.type = Sprite.Type.FILLED;
+        if (this._fillMethod <= 3)
+            this.fillType = this._fillMethod - 1;
+        else
+            this.fillType = Sprite.FillType.RADIAL;
+        this.fillCenter = new Vec2(0.5, 0.5);
     }
     get fillOrigin() {
         return this._fillOrigin;
@@ -4080,14 +4088,30 @@ class Image extends Sprite {
         if (this._fillAmount != value) {
             this._fillAmount = value;
             if (this._fillMethod != 0) {
-                if (this._fillClockwise)
-                    this.fillRange = -this._fillAmount;
-                else
-                    this.fillRange = this._fillAmount;
+                this.updateFillRange();
             }
         }
     }
+    updateFillRange() {
+        if (!this.spriteFrame) {
+            return;
+        }
+        if (this._fillClockwise)
+            this.fillRange = -this._fillAmount;
+        else
+            this.fillRange = this._fillAmount;
+    }
+    __update() {
+        if (this._fillMethod != 0) {
+            this.updateFillType();
+            this.setupFill();
+            this.updateFillRange();
+        }
+    }
     setupFill() {
+        if (!this.spriteFrame) {
+            return;
+        }
         if (this._fillMethod == FillMethod.Horizontal) {
             this._fillClockwise = this._fillOrigin == FillOrigin.Right || this._fillOrigin == FillOrigin.Bottom;
             this.fillStart = this._fillClockwise ? 1 : 0;
@@ -4570,7 +4594,7 @@ UIContentScaler.scaleFactor = 1;
 UIContentScaler.scaleLevel = 0;
 UIContentScaler.rootSize = new Size();
 function updateScaler() {
-    let size = view.getCanvasSize();
+    let size = screen.windowSize;
     size.width /= view.getScaleX();
     size.height /= view.getScaleY();
     UIContentScaler.rootSize.set(size);
@@ -5071,6 +5095,7 @@ class UIPackage {
         pkg = new UIPackage();
         pkg._bundle = resources;
         pkg.loadPackage(new ByteBuffer(asset._buffer), path);
+        pkg._bundle.release(path);
         _instById[pkg.id] = pkg;
         _instByName[pkg.name] = pkg;
         _instById[pkg._path] = pkg;
@@ -5111,6 +5136,7 @@ class UIPackage {
             pkg._bundle = bundle;
             let buffer = asset.buffer ? asset.buffer() : asset._nativeAsset;
             pkg.loadPackage(new ByteBuffer(buffer), path);
+            pkg._bundle.release(path);
             let cnt = pkg._items.length;
             let urls = [];
             for (var i = 0; i < cnt; i++) {
@@ -6776,7 +6802,7 @@ class InputProcessor extends Component {
     }
     setEnd(ti) {
         ti.began = false;
-        let now = director.getTotalTime() / 1000;
+        let now = game.totalTime / 1000;
         let elapsed = now - ti.lastClickTime;
         if (elapsed < 0.45) {
             if (ti.clickCount == 2)
@@ -7194,6 +7220,11 @@ class Controller extends EventTarget {
             this._selectedIndex = homePageIndex;
         else
             this._selectedIndex = -1;
+    }
+    addAction(action) {
+        if (!this._actions)
+            this._actions = new Array();
+        this._actions.push(action);
     }
 }
 function createAction(type) {
@@ -8047,7 +8078,7 @@ class ScrollPane extends Component {
         this._isHoldAreaDone = false;
         this._velocity.set(Vec2.ZERO);
         this._velocityScale = 1;
-        this._lastMoveTime = director.getTotalTime() / 1000;
+        this._lastMoveTime = game.totalTime / 1000;
     }
     onTouchMove(evt) {
         if (!isValid(this._owner.node))
@@ -8147,7 +8178,7 @@ class ScrollPane extends Component {
                 this._container.setPosition(newPosX, this._container.position.y);
         }
         //更新速度
-        var now = director.getTotalTime() / 1000;
+        var now = game.totalTime / 1000;
         var deltaTime = Math.max(now - this._lastMoveTime, 1 / 60);
         var deltaPositionX = pt.x - this._lastTouchPos.x;
         var deltaPositionY = pt.y - this._lastTouchPos.y;
@@ -8264,7 +8295,7 @@ class ScrollPane extends Component {
             //更新速度
             if (!this._inertiaDisabled) {
                 var frameRate = 60;
-                var elapsed = (director.getTotalTime() / 1000 - this._lastMoveTime) * frameRate - 1;
+                var elapsed = (game.totalTime / 1000 - this._lastMoveTime) * frameRate - 1;
                 if (elapsed > 1) {
                     var factor = Math.pow(0.833, elapsed);
                     this._velocity.x = this._velocity.x * factor;
@@ -8543,7 +8574,7 @@ class ScrollPane extends Component {
             //以屏幕像素为基准
             var isMobile = sys.isMobile;
             var v2 = Math.abs(v) * this._velocityScale;
-            const winSize = View.instance.getCanvasSize();
+            const winSize = screen.windowSize;
             //在移动设备上，需要对不同分辨率做一个适配，我们的速度判断以1136分辨率为基准
             if (isMobile)
                 v2 *= 1136 / Math.max(winSize.width, winSize.height);
@@ -10014,6 +10045,43 @@ class Transition {
                 break;
         }
     }
+    copyFrom(source, applyBaseValue = true) {
+        let cnt = source._items.length;
+        this.name = source.name;
+        this._options = source._options;
+        this._autoPlay = source._autoPlay;
+        this._autoPlayTimes = source._autoPlayTimes;
+        this._autoPlayDelay = source._autoPlayDelay;
+        this._totalDuration = source._totalDuration;
+        for (let i = 0; i < cnt; i++) {
+            let item = source._items[i].clone();
+            if (applyBaseValue) {
+                let config = item.tweenConfig;
+                let rawConfig = source._items[i].tweenConfig;
+                if (config) {
+                    if (item.type == ActionType.Scale) {
+                        if (config.startValue) {
+                            config.startValue.f1 = rawConfig.startValue.f1 * this._owner.scaleX;
+                            config.startValue.f2 = rawConfig.startValue.f2 * this._owner.scaleY;
+                        }
+                        if (config.endValue) {
+                            config.endValue.f1 = rawConfig.endValue.f1 * this._owner.scaleX;
+                            config.endValue.f2 = rawConfig.endValue.f2 * this._owner.scaleY;
+                        }
+                    }
+                    else if (item.type == ActionType.Alpha) {
+                        if (config.startValue) {
+                            config.startValue.f1 = rawConfig.startValue.f1 * this._owner.alpha;
+                        }
+                        if (config.endValue) {
+                            config.endValue.f1 = rawConfig.endValue.f1 * this._owner.alpha;
+                        }
+                    }
+                }
+            }
+            this._items.push(item);
+        }
+    }
 }
 const OPTION_IGNORE_DISPLAY_CONTROLLER = 1;
 const OPTION_AUTO_STOP_DISABLED = 2;
@@ -10044,12 +10112,42 @@ class Item {
         this.value = {};
         this.displayLockToken = 0;
     }
+    clone() {
+        let item = new Item(this.type);
+        item.time = this.time;
+        item.targetId = this.targetId;
+        if (this.tweenConfig)
+            item.tweenConfig = this.tweenConfig.clone();
+        item.label = this.label;
+        item.value = Object.assign({}, this.value);
+        return item;
+    }
 }
 class TweenConfig {
     constructor() {
         this.easeType = EaseType.QuadOut;
         this.startValue = { b1: true, b2: true };
         this.endValue = { b1: true, b2: true };
+    }
+    clone() {
+        let keys = Object.keys(this);
+        let tc = new TweenConfig();
+        for (let i = 0; i < keys.length; i++) {
+            let k = keys[i];
+            // @ts-ignore
+            let value = this[k];
+            if (value == null) {
+                continue;
+            }
+            if (k == "endHook") {
+                continue;
+            }
+            if (typeof value == "object") {
+                value = Object.assign({}, value);
+            }
+            tc[k] = value;
+        }
+        return tc;
     }
 }
 
@@ -10060,6 +10158,7 @@ class GComponent extends GObject {
         this._childrenRenderOrder = ChildrenRenderOrder.Ascent;
         this._apexIndex = 0;
         this._invertedMask = false;
+        this._excludeInvisibles = false;
         this._node.name = "GComponent";
         this._children = new Array();
         this._controllers = new Array();
@@ -10070,6 +10169,15 @@ class GComponent extends GObject {
         this._container.layer = UIConfig.defaultUILayer;
         this._container.addComponent(UITransform).setAnchorPoint(0, 1);
         this._node.addChild(this._container);
+    }
+    get excludeInvisibles() {
+        return this._excludeInvisibles;
+    }
+    set excludeInvisibles(value) {
+        if (this._excludeInvisibles != value) {
+            this._excludeInvisibles = value;
+            this.setBoundsChangedFlag();
+        }
     }
     dispose() {
         var i;
@@ -10355,6 +10463,10 @@ class GComponent extends GObject {
         return this._controllers;
     }
     onChildAdd(child, index) {
+        if (!child.node) {
+            console.error("child.node is null");
+            return;
+        }
         child.node.parent = this._container;
         child.node.active = child._finalVisible;
         if (this._buildingDisplayList)
@@ -10745,6 +10857,8 @@ class GComponent extends GObject {
             var i = 0;
             for (var i = 0; i < len; i++) {
                 var child = this._children[i];
+                if (this._excludeInvisibles && !child.internalVisible3)
+                    continue;
                 tmp = child.x;
                 if (tmp < ax)
                     ax = tmp;
@@ -11067,6 +11181,35 @@ class GComponent extends GObject {
         for (let i = 0; i < cnt; ++i)
             this._transitions[i].onDisable();
     }
+    addTransition(transition, newName, applyBaseValue = true) {
+        let trans = new Transition(this);
+        trans.copyFrom(transition, applyBaseValue);
+        if (newName) {
+            trans.name = newName;
+        }
+        this._transitions.push(trans);
+    }
+    addControllerAction(controlName, transition, fromPages, toPages, applyBaseValue = true) {
+        let ctrl = this.getController(controlName);
+        if (!ctrl)
+            return;
+        this.addTransition(transition, null, applyBaseValue);
+        var action = createAction(0);
+        action.transitionName = transition.name;
+        if (fromPages) {
+            fromPages = fromPages.map((it) => {
+                return ctrl.getPageIdByName(it);
+            });
+        }
+        if (toPages) {
+            toPages = toPages.map((it) => {
+                return ctrl.getPageIdByName(it);
+            });
+        }
+        action.fromPage = fromPages;
+        action.toPage = toPages;
+        ctrl.addAction(action);
+    }
 }
 var s_vec2$2 = new Vec2();
 
@@ -11109,7 +11252,7 @@ class Window extends GComponent {
         return this._closeButton;
     }
     set closeButton(value) {
-        if (this._closeButton)
+        if (this._closeButton && this._closeButton.node)
             this._closeButton.offClick(this.closeEventHandler, this);
         this._closeButton = value;
         if (this._closeButton)
@@ -11120,7 +11263,7 @@ class Window extends GComponent {
     }
     set dragArea(value) {
         if (this._dragArea != value) {
-            if (this._dragArea) {
+            if (this._dragArea && this._dragArea.node) {
                 this._dragArea.draggable = false;
                 this._dragArea.off(Event.DRAG_START, this.onDragStart_1, this);
             }
@@ -11381,7 +11524,11 @@ class GRoot extends GComponent {
             this.setChildIndex(win, i);
     }
     showModalWait(msg) {
+        var _a;
         if (UIConfig.globalModalWaiting != null) {
+            if ((_a = this._modalWaitPane) === null || _a === void 0 ? void 0 : _a.isDisposed) {
+                this._modalWaitPane = null;
+            }
             if (this._modalWaitPane == null)
                 this._modalWaitPane = UIPackage.createObjectFromURL(UIConfig.globalModalWaiting);
             this._modalWaitPane.setSize(this.width, this.height);
@@ -11456,6 +11603,15 @@ class GRoot extends GComponent {
             }
         }
         return pos;
+    }
+    removeChildAt(index, dispose) {
+        let ret = super.removeChildAt(index, dispose);
+        if (dispose) {
+            if (ret == this._modalWaitPane) {
+                this._modalWaitPane = null;
+            }
+        }
+        return ret;
     }
     showPopup(popup, target, dir) {
         if (this._popupStack.length > 0) {
@@ -12051,6 +12207,10 @@ class GLoader extends GObject {
                         else
                             this._content.type = Sprite.Type.SIMPLE;
                     }
+                    else {
+                        this._content.type = Sprite.Type.FILLED;
+                    }
+                    this._content.__update();
                     this.updateLayout();
                 }
             }
@@ -12104,12 +12264,13 @@ class GLoader extends GObject {
                 this.onExternalLoadSuccess(sf);
             }
         };
+        const bundle = assetManager.getBundle(UIConfig.bundleName) || resources;
         if (this._url.startsWith("http://")
             || this._url.startsWith("https://")
             || this._url.startsWith('/'))
             assetManager.loadRemote(this._url, callback);
         else
-            resources.load(this._url + "/spriteFrame", Asset, callback);
+            bundle.load(this._url + "/spriteFrame", Asset, callback);
     }
     freeExternal(texture) {
     }
@@ -12929,6 +13090,12 @@ class GButton extends GComponent {
         this._changeStateOnClick = true;
         this._downEffect = 0;
         this._downEffectValue = 0.8;
+    }
+    get downEffect() {
+        return this._downEffect;
+    }
+    set downEffect(value) {
+        this._downEffect = value;
     }
     get icon() {
         return this._icon;
@@ -17235,7 +17402,7 @@ class AsyncOperationRunner extends Component {
         var di;
         var poolStart;
         var k;
-        var t = director.getTotalTime() / 1000;
+        var t = game.totalTime / 1000;
         var frameTime = UIConfig.frameTimeForAsyncUIConstruction;
         var totalItems = this._itemList.length;
         while (this._index < totalItems) {
@@ -17265,7 +17432,7 @@ class AsyncOperationRunner extends Component {
                 }
             }
             this._index++;
-            if ((this._index % 5 == 0) && director.getTotalTime() / 1000 - t >= frameTime)
+            if ((this._index % 5 == 0) && game.totalTime / 1000 - t >= frameTime)
                 return;
         }
         var result = this._objectPool[0];

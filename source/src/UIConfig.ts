@@ -64,6 +64,9 @@ export class UIConfig {
 
     //Default group name of UI node.<br/>
     public static defaultUILayer: number = Layers.Enum.UI_2D;
+
+    // 设定fgui资源所在bundle
+    public static bundleName = "fgui";
 }
 
 let _fontRegistry: { [index: string]: Font } = {};

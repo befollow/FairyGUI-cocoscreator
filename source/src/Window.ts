@@ -75,7 +75,7 @@ export class Window extends GComponent {
     }
 
     public set closeButton(value: GObject) {
-        if (this._closeButton)
+        if (this._closeButton && this._closeButton.node)
             this._closeButton.offClick(this.closeEventHandler, this);
         this._closeButton = value;
         if (this._closeButton)
@@ -88,7 +88,7 @@ export class Window extends GComponent {
 
     public set dragArea(value: GObject) {
         if (this._dragArea != value) {
-            if (this._dragArea) {
+            if (this._dragArea && this._dragArea.node) {
                 this._dragArea.draggable = false;
                 this._dragArea.off(FUIEvent.DRAG_START, this.onDragStart_1, this);
             }
