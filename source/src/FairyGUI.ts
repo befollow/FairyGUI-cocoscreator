@@ -58,3 +58,6 @@ export { EaseType } from "./tween/EaseType";
 
 export { UBBParser } from "./utils/UBBParser";
 export { ByteBuffer } from "./utils/ByteBuffer";
+
+export * from "./tween/GPath";
+export * from "./tween/GPathPoint";

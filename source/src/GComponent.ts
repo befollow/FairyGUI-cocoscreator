@@ -41,7 +41,7 @@ export class GComponent extends GObject {
     public _alignOffset: Vec2;
     public _customMask?: Mask
 
-    private _excludeInvisibles: boolean = false;
+    private _invertedMask: boolean = false;
 
     public constructor() {
         super();
@@ -57,17 +57,6 @@ export class GComponent extends GObject {
         this._container.layer = UIConfig.defaultUILayer;
         this._container.addComponent(UITransform).setAnchorPoint(0, 1);
         this._node.addChild(this._container);
-    }
-
-    public get excludeInvisibles(): boolean {
-        return this._excludeInvisibles;
-    }
-
-    public set excludeInvisibles(value: boolean) {
-        if (this._excludeInvisibles != value) {
-            this._excludeInvisibles = value;
-            this.setBoundsChangedFlag();
-        }
     }
 
     public dispose(): void {
@@ -646,7 +635,7 @@ export class GComponent extends GObject {
             value.node.on(Node.EventType.SIZE_CHANGED, this.onMaskContentChanged, this);
             value.node.on(Node.EventType.ANCHOR_CHANGED, this.onMaskContentChanged, this);
 
-            this._customMask.inverted = inverted;
+            this._invertedMask = inverted;
             if (this._node.activeInHierarchy)
                 this.onMaskReady();
             else
@@ -677,16 +666,18 @@ export class GComponent extends GObject {
         this.off(FUIEvent.DISPLAY, this.onMaskReady, this);
 
         if (this._maskContent instanceof GImage) {
-            this._customMask.type = Mask.Type.IMAGE_STENCIL;
+            this._customMask.type = Mask.Type.SPRITE_STENCIL;
             this._customMask.alphaThreshold = 0.0001;
             this._customMask.spriteFrame = this._maskContent._content.spriteFrame;
         }
         else if (this._maskContent instanceof GGraph) {
             if (this._maskContent.type == 2)
-                this._customMask.type = Mask.Type.ELLIPSE;
+                this._customMask.type = Mask.Type.GRAPHICS_ELLIPSE;
             else
-                this._customMask.type = Mask.Type.RECT;
+                this._customMask.type = Mask.Type.GRAPHICS_RECT;
         }
+
+        this._customMask.inverted = this._invertedMask;
     }
 
     private onMaskContentChanged() {
@@ -887,9 +878,6 @@ export class GComponent extends GObject {
 
             for (var i: number = 0; i < len; i++) {
                 var child: GObject = this._children[i];
-                if (this._excludeInvisibles && !child.internalVisible3)
-                    continue;
-                
                 tmp = child.x;
                 if (tmp < ax)
                     ax = tmp;
