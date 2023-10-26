@@ -639,7 +639,7 @@ declare module 'fairygui-cc/GLoader' {
         protected loadContent(): void;
         protected loadFromPackage(itemURL: string): void;
         protected loadExternal(): void;
-        protected freeExternal(texture: SpriteFrame): void;
+        protected freeExternal(): void;
         protected onExternalLoadSuccess(texture: SpriteFrame): void;
         protected onExternalLoadFailed(): void;
         protected handleSizeChanged(): void;
@@ -653,7 +653,7 @@ declare module 'fairygui-cc/GLoader' {
 }
 
 declare module 'fairygui-cc/GLoader3D' {
-    import { sp, dragonBones, Color, Vec2 } from "cc";
+    import { sp, dragonBones, Color, Vec2, Node, Prefab } from "cc";
     import { AlignType, LoaderFillType, VertAlignType } from "fairygui-cc/FieldTypes";
     import { GObject } from "fairygui-cc/GObject";
     import { ByteBuffer } from "fairygui-cc/utils/ByteBuffer";
@@ -686,7 +686,7 @@ declare module 'fairygui-cc/GLoader3D' {
         set loop(value: boolean);
         get color(): Color;
         set color(value: Color);
-        get content(): sp.Skeleton | dragonBones.ArmatureDisplay;
+        get content(): sp.Skeleton | dragonBones.ArmatureDisplay | Node;
         protected loadContent(): void;
         protected loadFromPackage(itemURL: string): void;
         setSpine(asset: sp.SkeletonData, anchor: Vec2, pma?: boolean): void;
@@ -694,6 +694,8 @@ declare module 'fairygui-cc/GLoader3D' {
         setDragonBones(asset: dragonBones.DragonBonesAsset, atlasAsset: dragonBones.DragonBonesAtlasAsset, anchor: Vec2, pma?: boolean): void;
         freeDragonBones(): void;
         protected loadExternal(): void;
+        protected onExternalLoadSuccess(pb: Prefab): void;
+        protected freeExternal(): void;
         protected handleSizeChanged(): void;
         protected handleAnchorChanged(): void;
         protected handleGrayedChanged(): void;

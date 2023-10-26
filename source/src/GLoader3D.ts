@@ -1,4 +1,4 @@
-import { sp, dragonBones, assetManager, Color, isValid, resources, Vec2, Node, UITransform, Asset, math } from "cc";
+import { sp, dragonBones, assetManager, Color, isValid, resources, Vec2, Node, UITransform, Asset, math, Prefab, instantiate } from "cc";
 import { AlignType, LoaderFillType, ObjectPropID, PackageItemType, VertAlignType } from "./FieldTypes";
 import { GObject } from "./GObject";
 import { PackageItem } from "./PackageItem";
@@ -21,8 +21,9 @@ export class GLoader3D extends GObject {
     private _color: Color;
     private _contentItem: PackageItem;
     private _container: Node;
-    private _content: sp.Skeleton | dragonBones.ArmatureDisplay;
+    private _content: sp.Skeleton | dragonBones.ArmatureDisplay | Node;
     private _updatingLayout: boolean;
+    private _externalAssets: { [path: string]: Asset } = {};
 
     public constructor() {
         super();
@@ -42,6 +43,7 @@ export class GLoader3D extends GObject {
     }
 
     public dispose(): void {
+        this.clearContent();
         super.dispose();
     }
 
@@ -188,11 +190,16 @@ export class GLoader3D extends GObject {
         this._color.set(value);
         this.updateGear(4);
 
-        if (this._content)
-            this._content.color = value;
+        if (this._content) {
+            if (this._content instanceof Node) {
+                // 
+            } else {
+                this._content.color = value;
+            }
+        }
     }
 
-    public get content(): sp.Skeleton | dragonBones.ArmatureDisplay {
+    public get content(): sp.Skeleton | dragonBones.ArmatureDisplay | Node {
         return this._content;
     }
 
@@ -257,8 +264,8 @@ export class GLoader3D extends GObject {
         this.updateLayout();
     }
 
-    public freeSpine(){
-        if(this._content){
+    public freeSpine() {
+        if (this._content) {
             this._content.destroy();
         }
     }
@@ -286,20 +293,20 @@ export class GLoader3D extends GObject {
         this.updateLayout();
     }
 
-    public freeDragonBones():void{
-        if(this._content){
+    public freeDragonBones(): void {
+        if (this._content) {
             this._content.destroy();
         }
     }
 
     private onChange(): void {
-        if(this._contentItem == null)
+        if (this._contentItem == null)
             return;
-            
-        if(this._contentItem.type == PackageItemType.Spine){
+
+        if (this._contentItem.type == PackageItemType.Spine) {
             this.onChangeSpine();
         }
-        if(this._contentItem.type == PackageItemType.DragonBones){
+        if (this._contentItem.type == PackageItemType.DragonBones) {
             this.onChangeDragonBones();
         }
     }
@@ -345,13 +352,9 @@ export class GLoader3D extends GObject {
     }
 
     protected loadExternal(): void {
+        // 仅使用预制体，这样通用性更强
         const bundle = assetManager.getBundle(UIConfig.bundleName) || resources;
-        if (this._url.startsWith("http://")
-            || this._url.startsWith("https://")
-            || this._url.startsWith('/'))
-            assetManager.loadRemote(this._url, sp.SkeletonData, this.onLoaded2.bind(this));
-        else
-            bundle.load(this._url, sp.SkeletonData, this.onLoaded2.bind(this));
+        bundle.load(this._url, Prefab, this.onLoaded2.bind(this));
     }
 
     private onLoaded2(err: Error, asset: Asset): void {
@@ -362,6 +365,46 @@ export class GLoader3D extends GObject {
 
         if (err)
             console.warn(err);
+
+        this.addExternalAssetRef(this._url, asset)
+        if (asset instanceof Prefab) {
+            this.onExternalLoadSuccess(asset);
+        }
+    }
+
+    private addExternalAssetRef(url: string, asset: Asset) {
+        if (!this._externalAssets[url]) {
+            this._externalAssets[url] = asset;
+            asset.addRef();
+        }
+    }
+
+    protected onExternalLoadSuccess(pb: Prefab): void {
+        let node = instantiate(pb);
+        this._container.addChild(node);
+
+        this._content = node;
+        this.sourceWidth = node.getComponent(UITransform).contentSize.width;
+        this.sourceHeight = node.getComponent(UITransform).contentSize.height;
+        if (this._autoSize)
+            this.setSize(this.sourceWidth, this.sourceHeight);
+        this.updateLayout();
+    }
+
+    protected freeExternal(): void {
+        const bundle = assetManager.getBundle(UIConfig.bundleName) || resources;
+        for (const key in this._externalAssets) {
+            if (!Object.prototype.hasOwnProperty.call(this._externalAssets, key)) {
+                continue;
+            }
+            const asset = this._externalAssets[key];
+            asset.decRef();
+            if (asset.refCount <= 0) {
+                assetManager.releaseAsset(asset);
+                bundle.release(key);
+            }
+        }
+        this._externalAssets = {};
     }
 
     private updateLayout(): void {
@@ -444,9 +487,15 @@ export class GLoader3D extends GObject {
     private clearContent(): void {
         this._contentItem = null;
         if (this._content) {
-            this._content.node.destroy();
+            if (this._content instanceof Node) {
+                this._content.removeFromParent();
+                this._content.destroy();
+            } else {
+                this._content.node.destroy();
+            }
             this._content = null;
         }
+        this.freeExternal();
     }
 
     protected handleSizeChanged(): void {

@@ -1,4 +1,4 @@
-import { gfx, UIRenderer, Event as Event$1, Vec2, Node, game, director, macro, Color, Layers, Font, resources, Vec3, Rect, UITransform, UIOpacity, Component, Graphics, misc, Sprite, Size, screen, view, ImageAsset, AudioClip, BufferAsset, AssetManager, Asset, assetManager, Texture2D, SpriteFrame, BitmapFont, sp, dragonBones, path, Label, LabelOutline, LabelShadow, SpriteAtlas, RichText, sys, EventMouse, EventTarget, Mask, math, isValid, Scheduler, View, AudioSourceComponent, EditBox, Overflow } from 'cc';
+import { gfx, UIRenderer, Event as Event$1, Vec2, Node, game, director, macro, Color, Layers, Font, resources, Vec3, Rect, UITransform, UIOpacity, Component, Graphics, misc, Sprite, Size, screen, view, ImageAsset, AudioClip, BufferAsset, AssetManager, Asset, assetManager, Texture2D, SpriteFrame, BitmapFont, sp, dragonBones, path, Label, LabelOutline, LabelShadow, SpriteAtlas, RichText, sys, EventMouse, EventTarget, Mask, math, isValid, Scheduler, View, AudioSourceComponent, EditBox, Overflow, Prefab, instantiate } from 'cc';
 import { EDITOR } from 'cc/env';
 
 var ButtonMode;
@@ -12051,6 +12051,7 @@ class GLoader extends GObject {
     constructor() {
         super();
         this._frame = 0;
+        this._externalAssets = {};
         this._node.name = "GLoader";
         this._playing = true;
         this._url = "";
@@ -12069,12 +12070,10 @@ class GLoader extends GObject {
         this._content.setPlaySettings();
     }
     dispose() {
-        if (this._contentItem == null) {
-            if (this._content.spriteFrame)
-                this.freeExternal(this._content.spriteFrame);
-        }
-        if (this._content2)
+        if (this._content2) {
             this._content2.dispose();
+        }
+        this.freeExternal();
         super.dispose();
     }
     get url() {
@@ -12287,11 +12286,12 @@ class GLoader extends GObject {
     loadExternal() {
         let url = this.url;
         let callback = (err, asset) => {
+            if (err)
+                console.warn(err);
             //因为是异步返回的，而这时可能url已经被改变，所以不能直接用返回的结果
             if (this._url != url || !isValid(this._node))
                 return;
-            if (err)
-                console.warn(err);
+            this.addExternalAssetRef(this._url, asset);
             if (asset instanceof SpriteFrame)
                 this.onExternalLoadSuccess(asset);
             else if (asset instanceof Texture2D) {
@@ -12310,12 +12310,43 @@ class GLoader extends GObject {
         const bundle = assetManager.getBundle(UIConfig.bundleName) || resources;
         if (this._url.startsWith("http://")
             || this._url.startsWith("https://")
-            || this._url.startsWith('/'))
+            || this._url.startsWith('/')) {
             assetManager.loadRemote(this._url, callback);
-        else
+        }
+        else {
+            const as = bundle.get(this._url + "/spriteFrame");
+            if (as) {
+                callback(null, as);
+                return;
+            }
             bundle.load(this._url + "/spriteFrame", Asset, callback);
+        }
     }
-    freeExternal(texture) {
+    addExternalAssetRef(url, asset) {
+        if (!this._externalAssets[url]) {
+            this._externalAssets[url] = asset;
+            asset.addRef();
+        }
+    }
+    freeExternal() {
+        const bundle = assetManager.getBundle(UIConfig.bundleName) || resources;
+        for (const key in this._externalAssets) {
+            if (!Object.prototype.hasOwnProperty.call(this._externalAssets, key)) {
+                continue;
+            }
+            const asset = this._externalAssets[key];
+            asset.decRef();
+            if (asset.refCount <= 0) {
+                assetManager.releaseAsset(asset);
+                if (key.startsWith("http://")
+                    || key.startsWith("https://")
+                    || key.startsWith('/')) ;
+                else {
+                    bundle.release(key + "/spriteFrame");
+                }
+            }
+        }
+        this._externalAssets = {};
     }
     onExternalLoadSuccess(texture) {
         this._content.spriteFrame = texture;
@@ -12434,9 +12465,7 @@ class GLoader extends GObject {
     clearContent() {
         this.clearErrorState();
         if (!this._contentItem) {
-            var texture = this._content.spriteFrame;
-            if (texture)
-                this.freeExternal(texture);
+            this._content.spriteFrame;
         }
         if (this._content2) {
             this._container.removeChild(this._content2.node);
@@ -12446,6 +12475,7 @@ class GLoader extends GObject {
         this._content.frames = null;
         this._content.spriteFrame = null;
         this._contentItem = null;
+        this.freeExternal();
     }
     handleSizeChanged() {
         super.handleSizeChanged();
@@ -12537,6 +12567,7 @@ class GLoader3D extends GObject {
     constructor() {
         super();
         this._frame = 0;
+        this._externalAssets = {};
         this._node.name = "GLoader3D";
         this._playing = true;
         this._url = "";
@@ -12550,6 +12581,7 @@ class GLoader3D extends GObject {
         this._node.addChild(this._container);
     }
     dispose() {
+        this.clearContent();
         super.dispose();
     }
     get url() {
@@ -12666,8 +12698,12 @@ class GLoader3D extends GObject {
     set color(value) {
         this._color.set(value);
         this.updateGear(4);
-        if (this._content)
-            this._content.color = value;
+        if (this._content) {
+            if (this._content instanceof Node) ;
+            else {
+                this._content.color = value;
+            }
+        }
     }
     get content() {
         return this._content;
@@ -12792,13 +12828,9 @@ class GLoader3D extends GObject {
             this._content.armature().animation.reset();
     }
     loadExternal() {
+        // 仅使用预制体，这样通用性更强
         const bundle = assetManager.getBundle(UIConfig.bundleName) || resources;
-        if (this._url.startsWith("http://")
-            || this._url.startsWith("https://")
-            || this._url.startsWith('/'))
-            assetManager.loadRemote(this._url, sp.SkeletonData, this.onLoaded2.bind(this));
-        else
-            bundle.load(this._url, sp.SkeletonData, this.onLoaded2.bind(this));
+        bundle.load(this._url, Prefab, this.onLoaded2.bind(this));
     }
     onLoaded2(err, asset) {
         //因为是异步返回的，而这时可能url已经被改变，所以不能直接用返回的结果
@@ -12806,6 +12838,41 @@ class GLoader3D extends GObject {
             return;
         if (err)
             console.warn(err);
+        this.addExternalAssetRef(this._url, asset);
+        if (asset instanceof Prefab) {
+            this.onExternalLoadSuccess(asset);
+        }
+    }
+    addExternalAssetRef(url, asset) {
+        if (!this._externalAssets[url]) {
+            this._externalAssets[url] = asset;
+            asset.addRef();
+        }
+    }
+    onExternalLoadSuccess(pb) {
+        let node = instantiate(pb);
+        this._container.addChild(node);
+        this._content = node;
+        this.sourceWidth = node.getComponent(UITransform).contentSize.width;
+        this.sourceHeight = node.getComponent(UITransform).contentSize.height;
+        if (this._autoSize)
+            this.setSize(this.sourceWidth, this.sourceHeight);
+        this.updateLayout();
+    }
+    freeExternal() {
+        const bundle = assetManager.getBundle(UIConfig.bundleName) || resources;
+        for (const key in this._externalAssets) {
+            if (!Object.prototype.hasOwnProperty.call(this._externalAssets, key)) {
+                continue;
+            }
+            const asset = this._externalAssets[key];
+            asset.decRef();
+            if (asset.refCount <= 0) {
+                assetManager.releaseAsset(asset);
+                bundle.release(key);
+            }
+        }
+        this._externalAssets = {};
     }
     updateLayout() {
         let cw = this.sourceWidth;
@@ -12877,9 +12944,16 @@ class GLoader3D extends GObject {
     clearContent() {
         this._contentItem = null;
         if (this._content) {
-            this._content.node.destroy();
+            if (this._content instanceof Node) {
+                this._content.removeFromParent();
+                this._content.destroy();
+            }
+            else {
+                this._content.node.destroy();
+            }
             this._content = null;
         }
+        this.freeExternal();
     }
     handleSizeChanged() {
         super.handleSizeChanged();
